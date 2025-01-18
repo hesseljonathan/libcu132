@@ -3,8 +3,8 @@ OBJ_DIR=./build/obj
 SRC_DIR=./src
 
 CC=clang
-INCLUDES=-I/home/jonathan/Downloads/libserialport-0.1.2 -Iinclude
-LIBS=-L/home/jonathan/Downloads/libserialport-0.1.2/.libs -L$(BIN_DIR)
+INCLUDES=-Iexternal/libserialport -Iinclude
+LIBS=-Lexternal/libserialport/.libs -L$(BIN_DIR)
 CFLAGS=-g -Wall -Wextra $(INCLUDES)
 LDFLAGS=$(LIBS) -static
 

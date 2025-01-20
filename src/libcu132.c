@@ -13,7 +13,7 @@
 #define CMD_POLL        0x3f
 #define CMD_RSTATUS     0x3a
 
-#define CU_TIMEOUT      1
+#define CU_TIMEOUT      0
 #define MAX_RLEN        18
 
 typedef unsigned char CU_RESPONSE[MAX_RLEN];
@@ -50,14 +50,14 @@ CU_RESULT std_read(unsigned char *data) {
 CU_RESULT cu_write(CU132 *device, unsigned char code) {
     if (device == NULL) return ERROR;
     enum sp_return result = sp_blocking_write(device->serial_port, &code, 1, CU_TIMEOUT);
-    if (result != SP_OK) return ERROR;
+    if (result != 1) return ERROR;
     return SUCCESS;
 }
 
 CU_RESULT cu_read(CU132 *device, unsigned char *data) {
     if (device == NULL) return ERROR;
     enum sp_return result = sp_blocking_read(device->serial_port, data, 1, CU_TIMEOUT);
-    if (result != SP_OK) return ERROR;
+    if (result != 1) return ERROR;
     return SUCCESS;
 }
 

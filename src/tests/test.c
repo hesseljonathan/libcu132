@@ -30,7 +30,7 @@ int main() {
     int version;
     result = cu_get_version(device, &version);
     if (result == SUCCESS) {
-        fprintf(stderr, "CU Version: %u", version);
+        fprintf(stderr, "CU Version: %u\n", version);
     }
     result = cu_poll(device);
     if (result != SUCCESS) {

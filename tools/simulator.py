@@ -1,5 +1,8 @@
 import sys
 import random
+import serial
+
+ser = serial.Serial(port="COM4", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -13,17 +16,25 @@ def checksum(data):
 
 def write(data):
     check = checksum(data)
-    sys.stdout.buffer.write(data + check + b'$')
-    sys.stdout.flush()
+    ser.write(data + check + b'$')
+    ser.flush()
+    eprint(b'write  ' + data + check + b'$')
+    #sys.stdout.buffer.write(data + check + b'$')
+    #sys.stdout.flush()
 
 def write_plain(data):
-    sys.stdout.buffer.write(data)
-    sys.stdout.flush()
+    ser.write(data);
+    ser.flush();
+    eprint(b'write  ' + data)
+    #sys.stdout.buffer.write(data)
+    #sys.stdout.flush()
 
 def read():
     data = b''
     while len(data) == 0:
-        data = sys.stdin.buffer.read(1)
+        #data = sys.stdin.buffer.read(1)
+        data = ser.read_all()
+    eprint(b'read  ' + data)
     return data
 
 def process_command():

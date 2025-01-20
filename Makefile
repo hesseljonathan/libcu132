@@ -50,4 +50,4 @@ clean:
 	rm ./$(BIN_DIR)/*
 	rm ./$(OBJ_DIR)/*
 
-.PHONY: all clean clean-obj clean-bin tests
+.PHONY: all clean tests

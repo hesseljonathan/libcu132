@@ -14,20 +14,28 @@ void test_cb_status(CU_STATUS status) {
 int main() {
     fprintf(stderr, "%s", "Starting test...\n");
     CU132 *device;
-    CU_RESULT result = cu132_init(&device, "/dev/ttyUSB0");
+    CU_RESULT result = cu_init(&device);
     if (result != SUCCESS) {
-        cu132_destroy(device);
+        cu_destroy(device);
         return 1;
     }
-
-    cu132_register_data_callback(device, *test_cb_data);
-    cu132_register_status_callback(device, *test_cb_status);
-
-    while (true) {
-        result = cu132_poll(device);
-        if (result != SUCCESS)
-            fprintf(stderr, "%s", "error, continue\n");
+    cu_register_data_callback(device, *test_cb_data);
+    cu_register_status_callback(device, *test_cb_status);
+    result = cu_connect(device, "/dev/ttyUSB0");
+    if (result != SUCCESS) {
+        cu_destroy(device);
+        perror("Error connecting to CU");
+        return 1;
     }
-
-    cu132_destroy(device);
+    int version;
+    result = cu_get_version(device, &version);
+    if (result == SUCCESS) {
+        fprintf(stderr, "CU Version: %u", version);
+    }
+    result = cu_poll(device);
+    if (result != SUCCESS) {
+        perror("Error communicating with CU");
+        return 1;
+    }
+    cu_destroy(device);
 }

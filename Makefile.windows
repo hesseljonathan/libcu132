@@ -1,0 +1,43 @@
+BIN_DIR=build\bin
+OBJ_DIR=build\obj
+SRC_DIR=src
+
+# Use MSVC compiler and linker
+CC=cl
+LINK=link
+
+INCLUDES=/I external\libserialport /I include
+LIBSERIAL=external\libserialport\x64\Debug\libserialport.lib
+LIBCU132=build\bin\libcu132.lib
+CFLAGS=/Zi /W4 $(INCLUDES)
+
+# Source files
+LIB_SRC = $(SRC_DIR)\libcu132.c
+TEST_SRC = $(SRC_DIR)\tests\test.c
+TEST_OBJ = $(OBJ_DIR)\test.obj
+OBJ_LIB = $(OBJ_DIR)\libcu132.obj
+
+#Output files
+TEST_BIN = $(BIN_DIR)\test.exe
+DLL = $(BIN_DIR)\libcu132.dll
+
+all: $(DLL)
+
+# Rule to build libcu132.obj
+$(OBJ_LIB): $(LIB_SRC)
+	$(CC) $(CFLAGS) /c /Fo$(OBJ_LIB) $(LIB_SRC)
+
+# Rule to build the DLL
+$(DLL): $(OBJ_LIB)
+	$(LINK) /DLL /OUT:$(DLL) $(LIBSERIAL) $(OBJ_LIB)
+
+tests: $(DLL) $(TEST_BIN)
+
+#Rule to build the test executable
+$(TEST_BIN): $(TEST_SRC)
+	$(CC) $(CFLAGS) /Fo$(TEST_OBJ) /Fe$(TEST_BIN) $(TEST_SRC) /link $(LIBSERIAL) $(LIBCU132)
+
+clean:
+	del /Q $(BIN_DIR)\* $(OBJ_DIR)\*
+
+.PHONY: all clean tests

@@ -6,48 +6,41 @@ CC=clang
 INCLUDES=-Iexternal/libserialport -Iinclude
 LIBS=-Lexternal/libserialport/.libs -L$(BIN_DIR)
 CFLAGS=-g -Wall -Wextra $(INCLUDES)
-LDFLAGS=$(LIBS) -static
-
-# Source files
-LIB_SRC = $(SRC_DIR)/libcu132.c
-TEST_SRC = $(SRC_DIR)/tests/test.c
-OBJ_LIB = $(OBJ_DIR)/libcu132.o
-OBJ_TEST = $(OBJ_DIR)/test.o
+LDFLAGS=$(LIBS)
 
 # Output files
-LIBRARY = $(BIN_DIR)/libcu132.a
-TEST_BIN = $(BIN_DIR)/test
+SHARED = $(BIN_DIR)/libcu132.so
+ARCHIVE = $(BIN_DIR)/libcu132.a
+BINARY = $(BIN_DIR)/cu-monitor
 
-CLANGD_FLAGS = compile_flags.txt
+all: library binary
 
-all: $(LIBRARY) $(CLANGD_FLAGS)
+library: $(SHARED) $(ARCHIVE)
 
-# Rule to generate compile_flags.txt
-$(CLANGD_FLAGS): 
-	echo $(INCLUDES) | tr ' ' '\n' > $(CLANGD_FLAGS)
+binary: $(BINARY)
 
-# Rule to build the library (static archive)
-$(LIBRARY): $(OBJ_LIB)
+# Rule to build object files
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+	mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# Rule to build the library (shared object)
+$(SHARED): $(OBJ_DIR)/libcu132.o
 	mkdir -p $(BIN_DIR)
-	ar rcs $@ $^
+	$(CC) $(LDFLAGS) -shared -lserialport -o $@ $<
 
-# Rule to build libcu132.o
-$(OBJ_LIB): $(LIB_SRC)
-	mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+# Rule to build the library (archive)
+$(ARCHIVE): $(OBJ_DIR)/libcu132.o
+	mkdir -p $(BIN_DIR)
+	ar rcs $@ $<
 
-tests: $(TEST_BIN)
-
-$(TEST_BIN): $(OBJ_TEST) $(LIBRARY)
-	mkdir -p $(OBJ_DIR)
-	$(CC) $(LDFLAGS) $(OBJ_TEST) -lcu132 -lserialport -o $@
-
-$(OBJ_TEST): $(TEST_SRC)
-	mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+# Rule to build the binary (monitor)
+$(BINARY): $(OBJ_DIR)/monitor.o $(ARCHIVE)
+	mkdir -p $(BIN_DIR)
+	$(CC) $(LDFLAGS) -o $@ -lserialport $< $(ARCHIVE)
 
 clean:
 	rm ./$(BIN_DIR)/*
 	rm ./$(OBJ_DIR)/*
 
-.PHONY: all clean tests
+.PHONY: all library binary clean

@@ -22,8 +22,6 @@ struct CU132 {
     struct sp_port *serial_port;
     bool connected;
     CU_RESPONSE status;
-    CU_STATUS_CALLBACK_T callback_status;
-    CU_DATA_CALLBACK_T callback_data;
 };
 
 // Function to simulate writing to the serial port (stdout)
@@ -117,8 +115,7 @@ bool sanity_check(CU_RESPONSE response) {
     return true;
 }
 
-void cu_process_status(CU132 *device, CU_RESPONSE response) {
-    if (device->callback_status == NULL) return;
+CU_STATUS cu_process_status(CU_RESPONSE response) {
     sanity_check(response);
     CU_STATUS status;
     status.fuel_levels[0] = response[1] & 0xf;
@@ -132,13 +129,13 @@ void cu_process_status(CU132 *device, CU_RESPONSE response) {
     status.pitlane = (response[10] & 0x4) != 0;
     status.lapcounter = (response[10] & 0x8) != 0;
     status.cars_in_pit = (response[11] & 0xf) | ((response[12] & 0xf) << 4);
-    device->callback_status(status);
+    return status;
 }
 
-void cu_process_data(CU132 *device, CU_RESPONSE response) {
-    if (device->callback_data == NULL) return;
+CU_SENSOR cu_process_data(CU_RESPONSE response) {
     sanity_check(response);
-    unsigned char id = response[0] & 0xf;
+    CU_SENSOR sensor;
+    sensor.id = response[0] & 0xf;
     unsigned int timestamp = 0;
     timestamp = timestamp | ((response[7] & 0xf) << 0);
     timestamp = timestamp | ((response[8] & 0xf) << 4);
@@ -148,8 +145,9 @@ void cu_process_data(CU132 *device, CU_RESPONSE response) {
     timestamp = timestamp | ((response[4] & 0xf) << 20);
     timestamp = timestamp | ((response[1] & 0xf) << 24);
     timestamp = timestamp | ((response[2] & 0xf) << 28);
-    unsigned char sensor = response[9] & 0xf;
-    device->callback_data(id, timestamp, sensor);
+    sensor.timestamp = timestamp;
+    sensor.sensor_id = response[9] & 0xf;
+    return sensor;
 }
 
 CU_RESULT cu_init(CU132 **device) {
@@ -185,14 +183,7 @@ void cu_destroy(CU132 *device) {
     device = NULL;
 }
 
-void cu_register_status_callback(CU132 *device, CU_STATUS_CALLBACK_T callback) {
-    device->callback_status = callback;
-}
-void cu_register_data_callback(CU132 *device, CU_DATA_CALLBACK_T callback) {
-    device->callback_data = callback;
-}
-
-CU_RESULT cu_poll(CU132 *device) {
+CU_RESULT cu_poll(CU132 *device, CU_POLL_RESPONSE *processed_response) {
     CU_RESULT result;
     CU_RESPONSE response;
     result = cu_request(device, response, CMD_POLL); //The ? (0x3f) is the poll command
@@ -201,10 +192,12 @@ CU_RESULT cu_poll(CU132 *device) {
         if (memcmp(device->status, response, MAX_RLEN) != 0) //Status changed
         {
             memcpy(device->status, response, MAX_RLEN);
-            cu_process_status(device, response);
+            processed_response->type = RESPONSE_STATUS;
+            processed_response->data.status = cu_process_status(response);
         }
     } else { //The only other option is a data response
-        cu_process_data(device, response);
+        processed_response->type = RESPONSE_SENSOR;
+        processed_response->data.sensor = cu_process_data(response);
     }
     return SUCCESS;
 }

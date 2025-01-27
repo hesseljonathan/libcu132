@@ -2,12 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void test_cb_data(unsigned char id, unsigned int timestamp, unsigned char sensor) {
-    printf("%s\n", "DATA UPDATE\n");
-    printf("id=%u, time=%u, sensor=%u\n", id, timestamp, sensor);
+void test_sensor(CU_SENSOR sensor) {
+    printf("%s\n", "SENSOR UPDATE\n");
+    printf("id=%u, time=%u, sensor=%u\n", sensor.id, sensor.timestamp, sensor.sensor_id);
 }
 
-void test_cb_status(CU_STATUS status) {
+void test_status(CU_STATUS status) {
     printf("%s\n", "STATUS_UPDATE\n");
     printf("fuel: %u, %u, %u, %u, %u, %u\n", status.fuel_levels[0], status.fuel_levels[1], status.fuel_levels[2], status.fuel_levels[3], status.fuel_levels[4], status.fuel_levels[5]);
     printf("lights=%u, fuelmode=%u, pl=%u, lc=%u, inpit=%00x\n", status.start_light, status.fuel_mode, status.pitlane, status.lapcounter, status.cars_in_pit);
@@ -49,12 +49,15 @@ int main(int argc, char *argv[]) {
     if (result == SUCCESS) {
         printf("Found cu with firmware %u", version);
     }
-    cu_register_data_callback(device, *test_cb_data);
-    cu_register_status_callback(device, *test_cb_status);
-    result = cu_poll(device);
+    CU_POLL_RESPONSE response;
+    result = cu_poll(device, &response);
     if (result != SUCCESS) {
         perror("Protocol error");
         return 1;
     }
+    if (response.type == RESPONSE_SENSOR)
+        test_sensor(response.data.sensor);
+    if (response.type == RESPONSE_STATUS)
+        test_status(response.data.status);
     cu_destroy(device);
 }

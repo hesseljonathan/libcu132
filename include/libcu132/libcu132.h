@@ -24,17 +24,32 @@ typedef struct {
     unsigned char cars_in_pit;
 } CU_STATUS;
 
-typedef void (*CU_STATUS_CALLBACK_T)(CU_STATUS status);
-typedef void (*CU_DATA_CALLBACK_T)(unsigned char id, unsigned int timestamp, unsigned char sensor);
+typedef struct {
+    unsigned char id;
+    unsigned int timestamp;
+    unsigned char sensor_id;
+} CU_SENSOR;
+
+typedef enum {
+    RESPONSE_SENSOR,
+    RESPONSE_STATUS
+} CU_POLL_RESPONSE_TYPE;
+
+typedef union {
+    CU_STATUS status;
+    CU_SENSOR sensor;
+} CU_POLL_RESPONSE_DATA;
+
+typedef struct {
+    CU_POLL_RESPONSE_TYPE type;
+    CU_POLL_RESPONSE_DATA data;
+} CU_POLL_RESPONSE;
 
 LIBCU132_API CU_RESULT cu_init(CU132 **device);
 LIBCU132_API CU_RESULT cu_connect(CU132 *device, char *serial_fd);
 LIBCU132_API void cu_destroy(CU132 *device);
 
-LIBCU132_API void cu_register_status_callback(CU132 *device, CU_STATUS_CALLBACK_T callback);
-LIBCU132_API void cu_register_data_callback(CU132 *device, CU_DATA_CALLBACK_T callback);
-
-LIBCU132_API CU_RESULT cu_poll(CU132 *device);
+LIBCU132_API CU_RESULT cu_poll(CU132 *device, CU_POLL_RESPONSE *response);
 LIBCU132_API CU_RESULT cu_get_version(CU132 *device, int *version);
 
 #endif

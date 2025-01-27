@@ -40,13 +40,14 @@ typedef union {
     CU_SENSOR sensor;
 } CU_POLL_RESPONSE_DATA;
 
+//Wrapper for the structured response (tagged union)
 typedef struct {
     CU_POLL_RESPONSE_TYPE type;
     CU_POLL_RESPONSE_DATA data;
 } CU_POLL_RESPONSE;
 
 LIBCU132_API CU_RESULT cu_init(CU132 **device);
-LIBCU132_API CU_RESULT cu_connect(CU132 *device, char *serial_fd);
+LIBCU132_API CU_RESULT cu_connect(CU132 *device, const char *port_name);
 LIBCU132_API void cu_destroy(CU132 *device);
 
 LIBCU132_API CU_RESULT cu_poll(CU132 *device, CU_POLL_RESPONSE *response);

@@ -7,6 +7,7 @@
 
 #include <libserialport.h>
 
+//Magic values (commands) for the CU
 #define CMD_INIT        0x22
 #define CMD_VERSION     0x30
 #define CMD_TERMINATOR  0x24
@@ -14,44 +15,26 @@
 #define CMD_RSTATUS     0x3a
 
 #define CU_TIMEOUT      0
-#define MAX_RLEN        18
 
+//The raw response will only be 18 bytes or less so we use a fixed buffer here
+#define MAX_RLEN        18
 typedef unsigned char CU_RESPONSE[MAX_RLEN];
 
+//Wrapper struct for to keep track of references
 struct CU132 {
     struct sp_port *serial_port;
     bool connected;
-    CU_RESPONSE status;
 };
 
-// Function to simulate writing to the serial port (stdout)
-CU_RESULT std_write(unsigned char code) {
-    int bytes_written = fwrite(&code, 1, 1, stdout);
-    if (bytes_written != 1) {
-        perror("Error writing to stdout");
-        return ERROR;
-    }
-    fflush(stdout);
-    return SUCCESS;
-}
-
-// Function to simulate reading from the serial port (stdin)
-CU_RESULT std_read(unsigned char *data) {
-    int bytes_read = fread(data, 1, 1, stdin);
-    if (bytes_read != 1) {
-        perror("Error reading from stdin");
-        return ERROR;
-    }
-    return SUCCESS;
-}
-
-CU_RESULT cu_write(CU132 *device, unsigned char code) {
+//Write 1 byte to the CU (blocking)
+CU_RESULT cu_write(CU132 *device, const unsigned char code) {
     if (device == NULL) return ERROR;
     enum sp_return result = sp_blocking_write(device->serial_port, &code, 1, CU_TIMEOUT);
     if (result != 1) return ERROR;
     return SUCCESS;
 }
 
+//Read 1 byte from the CU into data (blocking)
 CU_RESULT cu_read(CU132 *device, unsigned char *data) {
     if (device == NULL) return ERROR;
     enum sp_return result = sp_blocking_read(device->serial_port, data, 1, CU_TIMEOUT);
@@ -59,7 +42,9 @@ CU_RESULT cu_read(CU132 *device, unsigned char *data) {
     return SUCCESS;
 }
 
-CU_RESULT cu_read_until(CU132 *device, CU_RESPONSE data, unsigned char terminator) {
+//Read bytes from the CU into data until terminator is encountered (blocking)
+CU_RESULT cu_read_until(CU132 *device, CU_RESPONSE data, const unsigned char terminator) {
+    if (device == NULL) return ERROR;
     int cursor = 0;
     while (cursor < MAX_RLEN) {
         unsigned char current;
@@ -72,7 +57,9 @@ CU_RESULT cu_read_until(CU132 *device, CU_RESPONSE data, unsigned char terminato
     return SUCCESS;
 }
 
-CU_RESULT cu_request(CU132 *device, CU_RESPONSE data, unsigned char cmd) {
+
+//Writes and reads from the CU according to the underlying protocol (blocking)
+CU_RESULT cu_request(CU132 *device, CU_RESPONSE data, const unsigned char cmd) {
     CU_RESULT result;
     CU_RESPONSE response; //Response buffer is 18 chars maximum
     result = cu_write(device, CMD_INIT); //The " (0x22) signals a command to follow
@@ -96,7 +83,8 @@ void debug_repr(CU_RESPONSE buffer) {
     }
 }
 
-bool sanity_check(CU_RESPONSE response) {
+//Verifies the checksum of a given raw response
+bool sanity_check(const CU_RESPONSE response) {
     unsigned char calculated = 0;
     unsigned char last = 0;
     int length = MAX_RLEN;
@@ -115,8 +103,8 @@ bool sanity_check(CU_RESPONSE response) {
     return true;
 }
 
-CU_STATUS cu_process_status(CU_RESPONSE response) {
-    sanity_check(response);
+//Interprets a raw response as a structured status response
+CU_STATUS cu_process_status(const CU_RESPONSE response) {
     CU_STATUS status;
     status.fuel_levels[0] = response[1] & 0xf;
     status.fuel_levels[1] = response[2] & 0xf;
@@ -132,8 +120,8 @@ CU_STATUS cu_process_status(CU_RESPONSE response) {
     return status;
 }
 
+//Interprets a raw response as a structured sensor response
 CU_SENSOR cu_process_data(CU_RESPONSE response) {
-    sanity_check(response);
     CU_SENSOR sensor;
     sensor.id = response[0] & 0xf;
     unsigned int timestamp = 0;
@@ -150,6 +138,7 @@ CU_SENSOR cu_process_data(CU_RESPONSE response) {
     return sensor;
 }
 
+//Allocates and initiates a CU wrapper struct and stores reference into device
 CU_RESULT cu_init(CU132 **device) {
     if (device == NULL) return ERROR;
     *device = malloc(sizeof(CU132));
@@ -158,9 +147,10 @@ CU_RESULT cu_init(CU132 **device) {
     return SUCCESS;
 }
 
-CU_RESULT cu_connect(CU132 *device, char *serial_fd) {
+//Opens the serial port on port_name
+CU_RESULT cu_connect(CU132 *device, const char *port_name) {
     if (device == NULL) return ERROR;
-    enum sp_return result = sp_get_port_by_name(serial_fd, &device->serial_port);
+    enum sp_return result = sp_get_port_by_name(port_name, &device->serial_port);
     if (result != SP_OK) return ERROR;
     sp_set_baudrate(device->serial_port, 19200);
     sp_set_bits(device->serial_port, 8);
@@ -173,6 +163,7 @@ CU_RESULT cu_connect(CU132 *device, char *serial_fd) {
     return SUCCESS;
 }
 
+//Closes the serial port and frees and the given CU wrapper
 void cu_destroy(CU132 *device) {
     if (device == NULL) return;
     if (device->serial_port != NULL) {
@@ -183,32 +174,30 @@ void cu_destroy(CU132 *device) {
     device = NULL;
 }
 
-CU_RESULT cu_poll(CU132 *device, CU_POLL_RESPONSE *processed_response) {
+//Polls the CU as specified in the underlying protocol and stores the structured response (blocking)
+CU_RESULT cu_poll(CU132 *device, CU_POLL_RESPONSE *response) {
     CU_RESULT result;
-    CU_RESPONSE response;
-    result = cu_request(device, response, CMD_POLL); //The ? (0x3f) is the poll command
+    CU_RESPONSE raw;
+    result = cu_request(device, raw, CMD_POLL); //The ? (0x3f) is the poll command
     if (result != SUCCESS) return ERROR;
-    if (response[0] == CMD_RSTATUS) { //The : (0x3a) signals a status response
-        if (memcmp(device->status, response, MAX_RLEN) != 0) //Status changed
-        {
-            memcpy(device->status, response, MAX_RLEN);
-            processed_response->type = RESPONSE_STATUS;
-            processed_response->data.status = cu_process_status(response);
-        }
+    if (raw[0] == CMD_RSTATUS) { //The : (0x3a) signals a status response
+        response->type = RESPONSE_STATUS;
+        response->data.status = cu_process_status(raw);
     } else { //The only other option is a data response
-        processed_response->type = RESPONSE_SENSOR;
-        processed_response->data.sensor = cu_process_data(response);
+        response->type = RESPONSE_SENSOR;
+        response->data.sensor = cu_process_data(raw);
     }
     return SUCCESS;
 }
 
+//Requests the firmware version of the CU (blocking)
 CU_RESULT cu_get_version(CU132 *device, int *version) {
     CU_RESULT result;
-    CU_RESPONSE response;
-    result = cu_request(device, response, CMD_VERSION); //The 0 (0x30) is the version command
+    CU_RESPONSE raw;
+    result = cu_request(device, raw, CMD_VERSION); //The 0 (0x30) is the version command
     if (result != SUCCESS) return ERROR;
-    sanity_check(response);
-    int num = atoi((char*) response);
+    sanity_check(raw);
+    int num = atoi((char*) raw);
     if (num == 0) return ERROR;
     *version = num;
     return SUCCESS;

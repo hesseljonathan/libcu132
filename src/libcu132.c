@@ -14,7 +14,7 @@
 #define CMD_POLL        0x3f
 #define CMD_RSTATUS     0x3a
 
-#define CU_TIMEOUT      0
+#define CU_TIMEOUT      1000
 
 //The raw response will only be 18 bytes or less so we use a fixed buffer here
 #define MAX_RLEN        18
@@ -164,14 +164,14 @@ CU_RESULT cu_connect(CU132 *device, const char *port_name) {
 }
 
 //Closes the serial port and frees and the given CU wrapper
-void cu_destroy(CU132 *device) {
-    if (device == NULL) return;
-    if (device->serial_port != NULL) {
-        sp_close(device->serial_port);
-        sp_free_port(device->serial_port);
+void cu_destroy(CU132 **device) {
+    if (device == NULL || *device == NULL) return;
+    if ((*device)->serial_port != NULL) {
+        sp_close((*device)->serial_port);
+        sp_free_port((*device)->serial_port);
     }
-    free(device);
-    device = NULL;
+    free(*device);
+    *device = NULL;
 }
 
 //Polls the CU as specified in the underlying protocol and stores the structured response (blocking)

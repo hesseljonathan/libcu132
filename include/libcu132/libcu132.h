@@ -48,7 +48,7 @@ typedef struct {
 
 LIBCU132_API CU_RESULT cu_init(CU132 **device);
 LIBCU132_API CU_RESULT cu_connect(CU132 *device, const char *port_name);
-LIBCU132_API void cu_destroy(CU132 *device);
+LIBCU132_API void cu_destroy(CU132 **device);
 
 LIBCU132_API CU_RESULT cu_poll(CU132 *device, CU_POLL_RESPONSE *response);
 LIBCU132_API CU_RESULT cu_get_version(CU132 *device, int *version);

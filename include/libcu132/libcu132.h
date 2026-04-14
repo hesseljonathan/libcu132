@@ -11,9 +11,9 @@
 typedef enum {
     SUCCESS = 0,
     ERROR = 1
-} CU_RESULT;
+} cu_result_t;
 
-typedef struct CU132 CU132;
+typedef struct cu132_t cu132_t;
 
 typedef struct {
     unsigned char fuel_levels[6];
@@ -22,35 +22,35 @@ typedef struct {
     bool pitlane;
     bool lapcounter;
     unsigned char cars_in_pit;
-} CU_STATUS;
+} cu_status_t;
 
 typedef struct {
     unsigned char id;
     unsigned int timestamp;
     unsigned char sensor_id;
-} CU_SENSOR;
+} cu_sensor_t;
 
 typedef enum {
     RESPONSE_SENSOR,
     RESPONSE_STATUS
-} CU_POLL_RESPONSE_TYPE;
+} cu_poll_response_type_t;
 
 typedef union {
-    CU_STATUS status;
-    CU_SENSOR sensor;
-} CU_POLL_RESPONSE_DATA;
+    cu_status_t status;
+    cu_sensor_t sensor;
+} cu_poll_response_data_t;
 
 //Wrapper for the structured response (tagged union)
 typedef struct {
-    CU_POLL_RESPONSE_TYPE type;
-    CU_POLL_RESPONSE_DATA data;
-} CU_POLL_RESPONSE;
+    cu_poll_response_type_t type;
+    cu_poll_response_data_t data;
+} cu_poll_response_t;
 
-LIBCU132_API CU_RESULT cu_init(CU132 **device);
-LIBCU132_API CU_RESULT cu_connect(CU132 *device, const char *port_name);
-LIBCU132_API void cu_destroy(CU132 **device);
+LIBCU132_API cu_result_t cu_init(cu132_t **device);
+LIBCU132_API cu_result_t cu_connect(cu132_t *device, const char *port_name);
+LIBCU132_API void cu_destroy(cu132_t *device);
 
-LIBCU132_API CU_RESULT cu_poll(CU132 *device, CU_POLL_RESPONSE *response);
-LIBCU132_API CU_RESULT cu_get_version(CU132 *device, int *version);
+LIBCU132_API cu_result_t cu_poll(cu132_t *device, cu_poll_response_t *response);
+LIBCU132_API cu_result_t cu_get_version(cu132_t *device, int *version);
 
 #endif

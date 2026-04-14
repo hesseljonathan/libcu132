@@ -18,16 +18,16 @@
 
 //The raw response will only be 18 bytes or less so we use a fixed buffer here
 #define MAX_RLEN        18
-typedef unsigned char CU_RESPONSE[MAX_RLEN];
+typedef unsigned char cu_raw_response_t[MAX_RLEN];
 
 //Wrapper struct for to keep track of references
-struct CU132 {
+struct cu132_t {
     struct sp_port *serial_port;
     bool connected;
 };
 
 //Write 1 byte to the CU (blocking)
-CU_RESULT cu_write(CU132 *device, const unsigned char code) {
+static cu_result_t cu_write(cu132_t *device, const unsigned char code) {
     if (device == NULL) return ERROR;
     enum sp_return result = sp_blocking_write(device->serial_port, &code, 1, CU_TIMEOUT);
     if (result != 1) return ERROR;
@@ -35,7 +35,7 @@ CU_RESULT cu_write(CU132 *device, const unsigned char code) {
 }
 
 //Read 1 byte from the CU into data (blocking)
-CU_RESULT cu_read(CU132 *device, unsigned char *data) {
+static cu_result_t cu_read(cu132_t *device, unsigned char *data) {
     if (device == NULL) return ERROR;
     enum sp_return result = sp_blocking_read(device->serial_port, data, 1, CU_TIMEOUT);
     if (result != 1) return ERROR;
@@ -43,12 +43,12 @@ CU_RESULT cu_read(CU132 *device, unsigned char *data) {
 }
 
 //Read bytes from the CU into data until terminator is encountered (blocking)
-CU_RESULT cu_read_until(CU132 *device, CU_RESPONSE data, const unsigned char terminator) {
+static cu_result_t cu_read_until(cu132_t *device, cu_raw_response_t data, const unsigned char terminator) {
     if (device == NULL) return ERROR;
     int cursor = 0;
     while (cursor < MAX_RLEN) {
         unsigned char current;
-        CU_RESULT result = cu_read(device, &current);
+        cu_result_t result = cu_read(device, &current);
         if (result != SUCCESS) return ERROR;
         data[cursor] = current;
         cursor += 1;
@@ -59,9 +59,9 @@ CU_RESULT cu_read_until(CU132 *device, CU_RESPONSE data, const unsigned char ter
 
 
 //Writes and reads from the CU according to the underlying protocol (blocking)
-CU_RESULT cu_request(CU132 *device, CU_RESPONSE data, const unsigned char cmd) {
-    CU_RESULT result;
-    CU_RESPONSE response; //Response buffer is 18 chars maximum
+static cu_result_t cu_request(cu132_t *device, cu_raw_response_t data, const unsigned char cmd) {
+    cu_result_t result;
+    cu_raw_response_t response; //Response buffer is 18 chars maximum
     result = cu_write(device, CMD_INIT); //The " (0x22) signals a command to follow
     result = cu_write(device, cmd);
     result = cu_read(device, response);
@@ -75,7 +75,7 @@ CU_RESULT cu_request(CU132 *device, CU_RESPONSE data, const unsigned char cmd) {
     return SUCCESS;
 }
 
-void debug_repr(CU_RESPONSE buffer) {
+static void debug_repr(cu_raw_response_t buffer) {
     for (int i = 0; i < MAX_RLEN; i++)
     {
         fprintf(stderr, "%02X ", buffer[i]);
@@ -84,7 +84,7 @@ void debug_repr(CU_RESPONSE buffer) {
 }
 
 //Verifies the checksum of a given raw response
-bool sanity_check(const CU_RESPONSE response) {
+static bool sanity_check(const cu_raw_response_t response) {
     unsigned char calculated = 0;
     unsigned char last = 0;
     int length = MAX_RLEN;
@@ -104,8 +104,8 @@ bool sanity_check(const CU_RESPONSE response) {
 }
 
 //Interprets a raw response as a structured status response
-CU_STATUS cu_process_status(const CU_RESPONSE response) {
-    CU_STATUS status;
+static cu_status_t cu_process_status(const cu_raw_response_t response) {
+    cu_status_t status;
     status.fuel_levels[0] = response[1] & 0xf;
     status.fuel_levels[1] = response[2] & 0xf;
     status.fuel_levels[2] = response[3] & 0xf;
@@ -121,8 +121,8 @@ CU_STATUS cu_process_status(const CU_RESPONSE response) {
 }
 
 //Interprets a raw response as a structured sensor response
-CU_SENSOR cu_process_data(CU_RESPONSE response) {
-    CU_SENSOR sensor;
+static cu_sensor_t cu_process_data(cu_raw_response_t response) {
+    cu_sensor_t sensor;
     sensor.id = response[0] & 0xf;
     unsigned int timestamp = 0;
     timestamp = timestamp | ((response[7] & 0xf) << 0);
@@ -139,47 +139,54 @@ CU_SENSOR cu_process_data(CU_RESPONSE response) {
 }
 
 //Allocates and initiates a CU wrapper struct and stores reference into device
-CU_RESULT cu_init(CU132 **device) {
+cu_result_t cu_init(cu132_t **device) {
     if (device == NULL) return ERROR;
-    *device = malloc(sizeof(CU132));
+    *device = malloc(sizeof(cu132_t));
     if (*device == NULL) return ERROR;
-    memset(*device, 0, sizeof(CU132));
+    memset(*device, 0, sizeof(cu132_t));
     return SUCCESS;
 }
 
 //Opens the serial port on port_name
-CU_RESULT cu_connect(CU132 *device, const char *port_name) {
+cu_result_t cu_connect(cu132_t *device, const char *port_name) {
     if (device == NULL) return ERROR;
     enum sp_return result = sp_get_port_by_name(port_name, &device->serial_port);
     if (result != SP_OK) return ERROR;
-    sp_set_baudrate(device->serial_port, 19200);
-    sp_set_bits(device->serial_port, 8);
-    sp_set_parity(device->serial_port, SP_PARITY_NONE);
-    sp_set_stopbits(device->serial_port, 1);
-    sp_set_flowcontrol(device->serial_port, SP_FLOWCONTROL_NONE);
     result = sp_open(device->serial_port, SP_MODE_READ_WRITE);
+    if (result != SP_OK) return ERROR;
+    result = sp_set_baudrate(device->serial_port, 19200);
+    if (result != SP_OK) return ERROR;
+    result = sp_set_bits(device->serial_port, 8);
+    if (result != SP_OK) return ERROR;
+    result = sp_set_parity(device->serial_port, SP_PARITY_NONE);
+    if (result != SP_OK) return ERROR;
+    result = sp_set_stopbits(device->serial_port, 1);
+    if (result != SP_OK) return ERROR;
+    result = sp_set_flowcontrol(device->serial_port, SP_FLOWCONTROL_NONE);
     if (result != SP_OK) return ERROR;
     device->connected = true;
     return SUCCESS;
 }
 
 //Closes the serial port and frees and the given CU wrapper
-void cu_destroy(CU132 **device) {
-    if (device == NULL || *device == NULL) return;
-    if ((*device)->serial_port != NULL) {
-        sp_close((*device)->serial_port);
-        sp_free_port((*device)->serial_port);
+void cu_destroy(cu132_t *device) {
+    if (device == NULL) return;
+    if (device->serial_port != NULL) {
+        printf("%s\n", sp_last_error_message());
+        sp_close(device->serial_port);
+        sp_free_port(device->serial_port);
     }
-    free(*device);
-    *device = NULL;
+    free(device);
+    device = NULL;
 }
 
 //Polls the CU as specified in the underlying protocol and stores the structured response (blocking)
-CU_RESULT cu_poll(CU132 *device, CU_POLL_RESPONSE *response) {
-    CU_RESULT result;
-    CU_RESPONSE raw;
+cu_result_t cu_poll(cu132_t *device, cu_poll_response_t *response) {
+    cu_result_t result;
+    cu_raw_response_t raw;
     result = cu_request(device, raw, CMD_POLL); //The ? (0x3f) is the poll command
     if (result != SUCCESS) return ERROR;
+    if (!sanity_check(raw)) return ERROR;
     if (raw[0] == CMD_RSTATUS) { //The : (0x3a) signals a status response
         response->type = RESPONSE_STATUS;
         response->data.status = cu_process_status(raw);
@@ -191,12 +198,12 @@ CU_RESULT cu_poll(CU132 *device, CU_POLL_RESPONSE *response) {
 }
 
 //Requests the firmware version of the CU (blocking)
-CU_RESULT cu_get_version(CU132 *device, int *version) {
-    CU_RESULT result;
-    CU_RESPONSE raw;
+cu_result_t cu_get_version(cu132_t *device, int *version) {
+    cu_result_t result;
+    cu_raw_response_t raw;
     result = cu_request(device, raw, CMD_VERSION); //The 0 (0x30) is the version command
     if (result != SUCCESS) return ERROR;
-    sanity_check(raw);
+    if (!sanity_check(raw)) return ERROR;
     int num = atoi((char*) raw);
     if (num == 0) return ERROR;
     *version = num;

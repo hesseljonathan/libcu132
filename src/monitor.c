@@ -2,12 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void test_sensor(CU_SENSOR sensor) {
+void test_sensor(cu_sensor_t sensor) {
     printf("%s\n", "SENSOR UPDATE\n");
     printf("id=%u, time=%u, sensor=%u\n", sensor.id, sensor.timestamp, sensor.sensor_id);
 }
 
-void test_status(CU_STATUS status) {
+void test_status(cu_status_t status) {
     printf("%s\n", "STATUS_UPDATE\n");
     printf("fuel: %u, %u, %u, %u, %u, %u\n", status.fuel_levels[0], status.fuel_levels[1], status.fuel_levels[2], status.fuel_levels[3], status.fuel_levels[4], status.fuel_levels[5]);
     printf("lights=%u, fuelmode=%u, pl=%u, lc=%u, inpit=%00x\n", status.start_light, status.fuel_mode, status.pitlane, status.lapcounter, status.cars_in_pit);
@@ -31,8 +31,8 @@ int main(int argc, char *argv[]) {
         timeout = atoi(argv[2]);
     }
     printf("Connecting on %s\n", serial_fd);
-    CU132 *device;
-    CU_RESULT result = cu_init(&device);
+    cu132_t *device;
+    cu_result_t result = cu_init(&device);
     if (result != SUCCESS) {
         perror("Failed to allocate memory");
         cu_destroy(device);
@@ -49,9 +49,10 @@ int main(int argc, char *argv[]) {
     if (result == SUCCESS) {
         printf("Found cu with firmware %u", version);
     }
-    CU_POLL_RESPONSE response;
+    cu_poll_response_t response;
     result = cu_poll(device, &response);
     if (result != SUCCESS) {
+        cu_destroy(device);
         perror("Protocol error");
         return 1;
     }
@@ -61,3 +62,5 @@ int main(int argc, char *argv[]) {
         test_status(response.data.status);
     cu_destroy(device);
 }
+
+

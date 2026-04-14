@@ -3,10 +3,10 @@ OBJ_DIR=./build/obj
 SRC_DIR=./src
 
 CC=clang
-INCLUDES=-Iexternal/libserialport -Iinclude
-LIBS=-Lexternal/libserialport/.libs -L$(BIN_DIR)
+INCLUDES=-Iinclude
+LIBS=-L$(BIN_DIR)
 CFLAGS=-g -Wall -Wextra $(INCLUDES)
-LDFLAGS=$(LIBS)
+LDFLAGS=$(LIBS) -v
 
 # Output files
 SHARED = $(BIN_DIR)/libcu132.so

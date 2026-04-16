@@ -1,23 +1,23 @@
 BIN_DIR=./build/bin
 OBJ_DIR=./build/obj
 SRC_DIR=./src
+EXAMPLE_DIR=./examples
 
 CC=clang
 INCLUDES=-Iinclude
-LIBS=-L$(BIN_DIR)
 CFLAGS=-g -Wall -Wextra $(INCLUDES)
-LDFLAGS=$(LIBS) -v
+LDFLAGS=-v
 
 # Output files
 SHARED = $(BIN_DIR)/libcu132.so
 ARCHIVE = $(BIN_DIR)/libcu132.a
-BINARY = $(BIN_DIR)/cu-monitor
+MONITOR = $(BIN_DIR)/monitor
 
-all: library binary
+all: library examples
 
 library: $(SHARED) $(ARCHIVE)
 
-binary: $(BINARY)
+examples: $(MONITOR)
 
 # Rule to build object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
@@ -27,20 +27,20 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 # Rule to build the library (shared object)
 $(SHARED): $(OBJ_DIR)/libcu132.o
 	mkdir -p $(BIN_DIR)
-	$(CC) $(LDFLAGS) -shared -lserialport -o $@ $<
+	$(CC) $(LDFLAGS) -shared $< -lserialport -o $@
 
 # Rule to build the library (archive)
 $(ARCHIVE): $(OBJ_DIR)/libcu132.o
 	mkdir -p $(BIN_DIR)
 	ar rcs $@ $<
 
-# Rule to build the binary (monitor)
-$(BINARY): $(OBJ_DIR)/monitor.o $(ARCHIVE)
+# Rule to build the example binary (monitor)
+$(MONITOR): $(EXAMPLE_DIR)/monitor.c $(ARCHIVE)
 	mkdir -p $(BIN_DIR)
-	$(CC) $(LDFLAGS) -o $@ -lserialport $< $(ARCHIVE)
+	$(CC) $(CFLAGS) $< $(ARCHIVE) -lserialport -o $@
 
 clean:
-	rm ./$(BIN_DIR)/*
-	rm ./$(OBJ_DIR)/*
+	rm $(BIN_DIR)/*
+	rm $(OBJ_DIR)/*
 
-.PHONY: all library binary clean
+.PHONY: all library examples clean

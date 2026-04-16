@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     int version;
     result = cu_get_version(device, &version);
     if (result == SUCCESS) {
-        printf("Found cu with firmware %u", version);
+        printf("Found cu with firmware %u\n", version);
     }
     cu_poll_response_t response;
     result = cu_poll(device, &response);
